@@ -8,6 +8,8 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:markdown_editor_plus/markdown_editor_plus.dart';
 import 'package:path_provider/path_provider.dart';  // Import this to access getApplicationDocumentsDirectory
+import 'models/note.dart'; // Your Note model
+// If the file is named main.dart
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,9 +22,11 @@ void main() async {
     );
   }
 
-  final appDocumentDir = await getApplicationDocumentsDirectory();  // Access documents directory
-  Hive.init(appDocumentDir.path);  // Initialize Hive with the directory path
-  await Hive.openBox<Note>('notesBox');  // Open the Hive box
+  final appDocumentDir = await getApplicationDocumentsDirectory();
+  Hive.init(appDocumentDir.path);
+
+  Hive.registerAdapter(NoteAdapter()); // <-- Required line
+  await Hive.openBox<Note>('notesBox');
 
   doWhenWindowReady(() {
     appWindow
@@ -35,21 +39,14 @@ void main() async {
   runApp(const MyApp());
 }
 
+
+
 // Note class definition remains the same...
 // Rest of the code continues as is...
 
-@HiveType(typeId: 0)
-class Note {
-  @HiveField(0)
-  String content;
-  @HiveField(1)
-  DateTime createdAt;
 
-  Note({
-    required this.content,
-    required this.createdAt,
-  });
-}
+
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -82,7 +79,7 @@ enum ScreenMode { home, create, edit }
 
 class _HomeScreenState extends State<HomeScreen> {
   late Box<Note> _notesBox;
-  final TextEditingController _noteController = TextEditingController();
+ final TextEditingController _noteController = TextEditingController();
   final TextEditingController _editController = TextEditingController();
   int? _selectedNoteIndex;
   ScreenMode _screenMode = ScreenMode.home;
@@ -275,21 +272,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.all(12.0),
-                            child: MarkdownEditorPlus(
-                              controller: _screenMode == ScreenMode.create
-                                  ? _noteController
-                                  : _editController,
-                              hintText: "Write your note using Markdown...",
-                            ),
-                          ),
-                        ),
+                       Expanded(
+  child: Container(
+  decoration: BoxDecoration(
+    color: Colors.black.withOpacity(0.4),
+    borderRadius: BorderRadius.circular(12),
+  ),
+  padding: const EdgeInsets.all(12.0),
+  child: MarkdownAutoPreview(
+  controller: _screenMode == ScreenMode.edit ? _editController : _noteController,
+  decoration: const InputDecoration(
+    hintText: "Write your note using Markdown...",
+    border: InputBorder.none,
+  ),
+  emojiConvert: true,
+),
+
+),
+
+),
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -327,5 +328,5 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-MarkdownEditorPlus({required TextEditingController controller, required String hintText}) {
-}
+
+
