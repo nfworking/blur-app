@@ -7,9 +7,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:markdown_editor_plus/markdown_editor_plus.dart';
-import 'package:path_provider/path_provider.dart';  // Import this to access getApplicationDocumentsDirectory
-import 'models/note.dart'; // Your Note model
-// If the file is named main.dart
+import 'package:path_provider/path_provider.dart';
+import 'models/note.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +24,7 @@ void main() async {
   final appDocumentDir = await getApplicationDocumentsDirectory();
   Hive.init(appDocumentDir.path);
 
-  Hive.registerAdapter(NoteAdapter()); // <-- Required line
+  Hive.registerAdapter(NoteAdapter());
   await Hive.openBox<Note>('notesBox');
 
   doWhenWindowReady(() {
@@ -38,15 +37,6 @@ void main() async {
 
   runApp(const MyApp());
 }
-
-
-
-// Note class definition remains the same...
-// Rest of the code continues as is...
-
-
-
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -78,9 +68,20 @@ class HomeScreen extends StatefulWidget {
 enum ScreenMode { home, create, edit }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _getFirstTwoWords(String text) {
+    final words = text
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+
+    if (words.isEmpty) return '(No content)';
+    return words.take(2).join(' ');
+  }
+
   late Box<Note> _notesBox;
- final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
   final TextEditingController _editController = TextEditingController();
+
   int? _selectedNoteIndex;
   ScreenMode _screenMode = ScreenMode.home;
   bool _isSidebarOpen = true;
@@ -212,17 +213,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                 return ListTile(
                                   contentPadding:
                                       const EdgeInsets.symmetric(horizontal: 12),
-                                  title: MarkdownBody(
-                                    data: note.content.split('\n').first,
-                                    styleSheet: MarkdownStyleSheet(
-                                      p: const TextStyle(color: Colors.white),
-                                    ),
+                                  title: Text(
+                                    _getFirstTwoWords(note.content),
+                                    style: const TextStyle(color: Colors.white),
                                   ),
                                   subtitle: Text(
                                     DateFormat('MMM d, yyyy h:mm a')
                                         .format(note.createdAt),
                                     style: const TextStyle(
-                                        fontSize: 12, color: Colors.orangeAccent),
+                                        fontSize: 12,
+                                        color: Colors.orangeAccent),
                                   ),
                                   tileColor: Colors.transparent,
                                   onTap: () => _selectNoteForEdit(index),
@@ -250,47 +250,96 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? _selectedNoteIndex != null
                       ? Markdown(
                           data: _notesBox.getAt(_selectedNoteIndex!)!.content,
-                          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                            p: const TextStyle(color: Colors.white, fontSize: 16),
+                          styleSheet:
+                              MarkdownStyleSheet.fromTheme(Theme.of(context))
+                                  .copyWith(
+                            p: const TextStyle(
+                                color: Colors.white, fontSize: 16),
                           ),
                         )
                       : const Center(
                           child: Text(
                             "Welcome!\nSelect a note or create a new one.",
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 24, color: Colors.white70),
+                            style:
+                                TextStyle(fontSize: 24, color: Colors.white70),
                           ),
                         )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _screenMode == ScreenMode.create ? "Create Note" : "Edit Note",
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _screenMode == ScreenMode.create
+                                  ? "Create Note"
+                                  : "Edit Note",
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                _isPreview
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.orangeAccent,
+                              ),
+                              tooltip:
+                                  _isPreview ? "Hide Preview" : "Show Preview",
+                              onPressed: _togglePreview,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
-                       Expanded(
-  child: Container(
-  decoration: BoxDecoration(
-    color: Colors.black.withOpacity(0.4),
-    borderRadius: BorderRadius.circular(12),
-  ),
-  padding: const EdgeInsets.all(12.0),
-  child: MarkdownAutoPreview(
-  controller: _screenMode == ScreenMode.edit ? _editController : _noteController,
-  decoration: const InputDecoration(
-    hintText: "Write your note using Markdown...",
-    border: InputBorder.none,
-  ),
-  emojiConvert: true,
-),
-
-),
-
-),
+                        Expanded(
+                          child: AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 300),
+                            crossFadeState: _isPreview
+                                ? CrossFadeState.showFirst
+                                : CrossFadeState.showSecond,
+                            firstChild: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.all(12.0),
+                              child: Markdown(
+                                data: _screenMode == ScreenMode.edit
+                                    ? _editController.text
+                                    : _noteController.text,
+                                styleSheet:
+                                    MarkdownStyleSheet.fromTheme(
+                                            Theme.of(context))
+                                        .copyWith(
+                                  p: const TextStyle(
+                                      color: Colors.white, fontSize: 16),
+                                ),
+                              ),
+                            ),
+                            secondChild: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.all(12.0),
+                              child: SplittedMarkdownFormField(
+                                controller: _screenMode == ScreenMode.edit
+                                    ? _editController
+                                    : _noteController,
+                                decoration: const InputDecoration(
+                                  hintText: "Write your note using Markdown...",
+                                  border: InputBorder.none,
+                                ),
+                                emojiConvert: true,
+                                enableToolBar: false,
+                              ),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -317,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               label: const Text("Cancel"),
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
             ),
@@ -327,6 +376,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-
-
